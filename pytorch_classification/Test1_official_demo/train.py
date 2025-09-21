@@ -7,6 +7,9 @@ import torchvision.transforms as transforms
 
 
 def main():
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    print("using {} device.".format(device))
+
     transform = transforms.Compose(
         [transforms.ToTensor(),
          transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
@@ -14,23 +17,26 @@ def main():
     # 50000张训练图片
     # 第一次使用时要将download设置为True才会自动去下载数据集
     train_set = torchvision.datasets.CIFAR10(root='./data', train=True,
-                                             download=False, transform=transform)
+                                             download=True, transform=transform)
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=36,
                                                shuffle=True, num_workers=0)
 
     # 10000张验证图片
     # 第一次使用时要将download设置为True才会自动去下载数据集
     val_set = torchvision.datasets.CIFAR10(root='./data', train=False,
-                                           download=False, transform=transform)
+                                           download=True, transform=transform)
     val_loader = torch.utils.data.DataLoader(val_set, batch_size=5000,
                                              shuffle=False, num_workers=0)
     val_data_iter = iter(val_loader)
     val_image, val_label = next(val_data_iter)
-    
+
+    val_image, val_label = val_image.to(device), val_label.to(device)
+
     # classes = ('plane', 'car', 'bird', 'cat',
     #            'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
     net = LeNet()
+    net.to(device)
     loss_function = nn.CrossEntropyLoss()
     optimizer = optim.Adam(net.parameters(), lr=0.001)
 
@@ -40,6 +46,7 @@ def main():
         for step, data in enumerate(train_loader, start=0):
             # get the inputs; data is a list of [inputs, labels]
             inputs, labels = data
+            inputs, labels = inputs.to(device), labels.to(device)
 
             # zero the parameter gradients
             optimizer.zero_grad()
@@ -65,6 +72,17 @@ def main():
 
     save_path = './Lenet.pth'
     torch.save(net.state_dict(), save_path)
+
+    # visualize model
+    from torchviz import make_dot
+    net = LeNet()
+    x = torch.randn(1, 3, 32, 32)
+    y = net(x)
+    
+    # 生成详细图
+    graph = make_dot(y, params=dict(net.named_parameters()), show_attrs=True, show_saved=True)
+    graph.render("LeNet_detailed", format="pdf", view=False, cleanup=True)
+    print("Network visualization saved to LeNet_detailed.pdf")
 
 
 if __name__ == '__main__':
